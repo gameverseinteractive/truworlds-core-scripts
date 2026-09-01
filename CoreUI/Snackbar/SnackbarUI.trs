@@ -1,0 +1,261 @@
+###
+    SnackbarUI.trs
+    Attached to: ScreenUI
+    Description: Controls the snackbar UI
+###
+
+UIUtils = import("/Utils/UIUtils")
+Snackbar = import("Snackbar")
+SoundUtils = import("/Utils/SoundUtils")
+
+local snackbarEvent = new LocalEvent() {
+    Name = "SnackbarEvent",
+    Parent = this
+}
+
+Snackbar.SnackbarEvent = snackbarEvent
+
+CurrentSnackbarData = nil
+IsActive = false
+SnackbarQueue = []
+
+SnackTimeElapsed = 0
+SnackTimerConnection = nil
+
+SNACKBAR_WIDTH = 300
+SNACKBAR_HEIGHT = 64
+SNACKBAR_PADDING = 5
+SNACKBAR_MARGIN_RIGHT = 10
+SNACKBAR_MARGIN_BOTTOM = 10
+
+local snackbarCard = UIUtils.CreateGenericHudPanel()
+snackbarCard.Name = "SnackbarPanel"
+snackbarCard.Parent = this
+snackbarCard.MinSize = new Vector2(SNACKBAR_WIDTH, SNACKBAR_HEIGHT)
+snackbarCard.FitContents = UIContentFit.Y
+snackbarCard.AnchorLeft = 1
+snackbarCard.AnchorTop = 1
+snackbarCard.AnchorRight = 1
+snackbarCard.AnchorBottom = 1
+snackbarCard.Pivot = new Vector2(1, 1)
+snackbarCard.Position = new Vector2(-SNACKBAR_MARGIN_RIGHT, -SNACKBAR_MARGIN_BOTTOM)
+snackbarCard.Roundness = 10
+snackbarCard.Visible = false
+
+local snackbarRootLayout = new UIVerticalLayout() {
+    Name = "SnackbarRootLayout",
+    Parent = snackbarCard,
+    AnchorLeft = 0,
+    AnchorTop = 0,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Size = Vector2.Zero,
+    Padding = Vector2.One * SNACKBAR_PADDING,
+    FitContents = UIContentFit.Y,
+    MinSize = new Vector2(0, SNACKBAR_HEIGHT),
+    Spacing = 5
+}
+
+local snackbarLayout = new UIHorizontalLayout() {
+    Name = "SnackbarLayout",
+    Parent = snackbarRootLayout,
+    FlexRatio = 1,
+    MinSize = new Vector2(0, SNACKBAR_HEIGHT - SNACKBAR_PADDING)
+}
+
+local snackbarImageContainer = new UIPanel() {
+    Name = "SnackbarImageContainer",
+    Parent = snackbarLayout,
+    Size = Vector2.Zero,
+    MinSize = Vector2.One * (SNACKBAR_HEIGHT - SNACKBAR_PADDING * 2),
+    Roundness = 10,
+    Color = new Color4(0.1, 0.1, 0.1, 1),
+    Visible = true,
+}
+
+local snackbarImagePanel = new UIPanel() {
+    Name = "SnackbarImagePanel",
+    Parent = snackbarImageContainer,
+    Size = Vector2.One * (SNACKBAR_HEIGHT - SNACKBAR_PADDING * 2),
+    AnchorLeft = 0.5,
+    AnchorTop = 0.5,
+    AnchorRight = 0.5,
+    AnchorBottom = 0.5,
+    Pivot = new Vector2(0.5, 0.5),
+    Roundness = 10,
+}
+local snackbarImage = new UIBackgroundImage() {
+    Parent = snackbarImagePanel
+}
+
+local snackbarContentLayout = new UIVerticalLayout() {
+    Name = "SnackbarContentLayout",
+    Parent = snackbarLayout,
+    FlexRatio = 1,
+    Padding = new Vector2(10, 0),
+    MainAlign = UIMainAlignment.Center
+}
+
+local snackbarTitleText = new UITextPanel() {
+    Name = "SnackbarTitle",
+    Parent = snackbarContentLayout,
+    Text = "",
+    FontName = FontName.Lexend,
+    TextSize = 14,
+    FitContents = UIContentFit.Y,
+    TextColor = new Color4(1, 1, 1, 1),
+    Color = new Color4(0, 0, 0, 0),
+    Padding = new Vector2(0, 4),
+    TextAlignment = UITextAlignment.Left,
+    TextVerticalAlignment = UITextVerticalAlignment.Bottom,
+}
+
+local snackbarText = new UITextPanel() {
+    Name = "SnackbarText",
+    Parent = snackbarContentLayout,
+    Text = "",
+    FontName = FontName.Lexend,
+    TextSize = 12,
+    FitContents = UIContentFit.Y,
+    TextColor = new Color4(1, 1, 1, 0.75),
+    Color = new Color4(0, 0, 0, 0),
+    TextAlignment = UITextAlignment.Left,
+    TextVerticalAlignment = UITextVerticalAlignment.Top,
+}
+
+local snackbarOffset = new UIPanel() {
+    Parent = snackbarContentLayout,
+    Color = new Color4(0, 0, 0, 0),
+    MinSize = new Vector2(0, 6)
+}
+
+local snackbarButtonsLayout = new UIHorizontalLayout() {
+    Name = "Buttons",
+    Parent = snackbarRootLayout,
+    MinSize = new Vector2(0, 24),
+    Spacing = 4
+}
+
+local primaryButton = new UIButton() {
+    Parent = snackbarButtonsLayout,
+    Text = "",
+    FlexRatio = 1,
+    FontName = FontName.Lexend,
+    TextSize = 14
+}
+
+local secondaryButton = new UIButton() {
+    Parent = snackbarButtonsLayout,
+    Text = "",
+    FlexRatio = 1,
+    FontName = FontName.Lexend,
+    TextSize = 14,
+    Color = new Color4(0.2, 0.2, 0.2),
+    BorderColor = new Color4(0.1, 0.1, 0.1),
+    BorderWidth = 1,
+    TextColor = new Color4(0.8, 0.8, 0.8),
+}
+
+SHOWN_POSITION = new Vector2(-SNACKBAR_MARGIN_RIGHT, -SNACKBAR_MARGIN_BOTTOM)
+HIDDEN_POSITION = new Vector2(-SNACKBAR_MARGIN_RIGHT + SNACKBAR_WIDTH, -SNACKBAR_MARGIN_BOTTOM)
+
+func revealSnackbar():
+    snackbarCard.Visible = true
+    snackbarCard.Position = HIDDEN_POSITION
+
+    local slideIn = Tween.Play(snackbarCard, new TweenParams(0.25, EasingFunc.Quad, EasingTrans.Out), {
+        Position = SHOWN_POSITION,
+    })
+    slideIn.Completed.Wait()
+
+func hideSnackbar():
+    if SnackTimerConnection: 
+        SnackTimerConnection.Disconnect()
+        SnackTimerConnection = nil
+        SnackTimeElapsed = 0
+    CurrentSnackbarData = nil
+    
+    local slideOut = Tween.Play(snackbarCard, new TweenParams(0.25, EasingFunc.Quad, EasingTrans.Out), {
+        Position = HIDDEN_POSITION,
+    })
+    slideOut.Completed.Wait()
+    snackbarCard.Visible = false
+
+func onPrimaryButtonPressed():
+    if CurrentSnackbarData and CurrentSnackbarData.PrimaryButtonText:
+        SnackTimeElapsed = 9999 # force it to close immediately
+        if CurrentSnackbarData.ButtonPressCallback:
+            CurrentSnackbarData.ButtonPressCallback(0) # 0 = primary
+
+func onSecondaryButtonPressed():
+    if CurrentSnackbarData and CurrentSnackbarData.SecondaryButtonText:
+        SnackTimeElapsed = 9999 # force it to close immediately
+        if CurrentSnackbarData.ButtonPressCallback:
+            CurrentSnackbarData.ButtonPressCallback(1) # 1 = secondary
+
+func handleSnackbar(data):
+    if IsActive:
+        SnackbarQueue.push(data)
+        return
+
+    IsActive = true
+    CurrentSnackbarData = data
+
+    snackbarText.Text = data.Text
+
+    local hasTitle = data.Title != nil
+    if hasTitle:
+        snackbarTitleText.Text = data.Title
+    else:
+        snackbarTitleText.Text = ""
+    snackbarTitleText.Visible = hasTitle
+
+    local hasImageId = data.ImageId != nil
+    if hasImageId:
+        snackbarImage.ImageId = data.ImageId
+    else:
+        snackbarImage.ImageId = ""
+    snackbarImageContainer.Visible = hasImageId
+
+    snackbarButtonsLayout.Visible = data.PrimaryButtonText != nil or data.SecondaryButtonText != nil
+    primaryButton.Visible = data.PrimaryButtonText != nil
+    secondaryButton.Visible = data.SecondaryButtonText != nil
+
+    if data.PrimaryButtonText:
+        primaryButton.Text = data.PrimaryButtonText
+    else:
+        primaryButton.Text = ""
+
+    if data.SecondaryButtonText:
+        secondaryButton.Text = data.SecondaryButtonText
+    else:
+        secondaryButton.Text = ""
+
+    if data.PlaySoundId:
+        SoundUtils.Play(data.PlaySoundId)
+
+    revealSnackbar()
+
+    if SnackTimerConnection: SnackTimerConnection.Disconnect()
+    
+    SnackTimeElapsed = 0
+    SnackTimerConnection = game.TimeSystem.FrameStepped.Connect(func(dt):
+        SnackTimeElapsed += dt
+        local maxTime = 4
+        if snackbarButtonsLayout.Visible:
+            maxTime = 16
+        elif SnackbarQueue.length > 0:
+            maxTime = 8
+        
+        if SnackTimeElapsed > maxTime:
+            hideSnackbar()
+            wait(0.25)
+            IsActive = false
+            if SnackbarQueue.length > 0:
+                handleSnackbar(SnackbarQueue.remove_at(0))
+    )
+
+
+primaryButton.Pressed.Connect(onPrimaryButtonPressed)
+secondaryButton.Pressed.Connect(onSecondaryButtonPressed)
+snackbarEvent.Connect(handleSnackbar)

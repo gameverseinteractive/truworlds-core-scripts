@@ -1,0 +1,190 @@
+###
+    PlayerListUI.trs
+    Attached to: ScreenUI
+    Description: Handles the player list and leaderboard
+###
+
+UIUtils = import("/Utils/UIUtils")
+PlayerRowFactory = import("PlayerRowFactory")
+PlayerSectionHeadingFactory = import("PlayerSectionHeaderFactory")
+LeaderboardState = import("LeaderboardState")
+
+local statNamesChangedEvent = new LocalEvent() {
+    Name = "StatNamesChanged",
+    Parent = this
+}
+LeaderboardState.StatNamesChanged = statNamesChangedEvent
+
+local orderChangedEvent = new LocalEvent() {
+    Name = "OrderChanged",
+    Parent = this
+}
+LeaderboardState.OrderChanged = orderChangedEvent
+
+Players = game.Players
+GuiRoot = game.CoreUI
+
+Minimized = false
+LeaderboardModeEnabled = false
+local leaderboardTween = nil
+
+local layout = new UIVerticalLayout() {
+    Name = "Layout",
+    Parent = this,
+    AnchorLeft = 1,
+    AnchorTop = 0,
+    AnchorRight = 1,
+    AnchorBottom = 0,
+    Pivot = new Vector2(1, 0),
+    Position = new Vector2(-10, 10),
+    Size = new Vector2(0, 512),
+    Spacing = 6,
+    BlocksPointer = false,
+}
+
+local localPlayerPanel = UIUtils.CreateGenericHudPanel()
+localPlayerPanel.Name = "LocalPlayerPanel"
+localPlayerPanel.Parent = layout
+localPlayerPanel.MinSize = new Vector2(0, 48)
+localPlayerPanel.AttachCoreScript("CoreUI/PlayerList/LocalPlayerPanel")
+
+local listPanel = UIUtils.CreateGenericHudPanel()
+listPanel.Name = "PlayerListPanel"
+listPanel.Parent = layout
+listPanel.FitContents = UIContentFit.Y
+listPanel.Padding = new Vector2(0, 0)
+listPanel.Visible = false
+
+local listLayout = new UIVerticalLayout() {
+    Name = "PlayerList",
+    Parent = listPanel,
+    AnchorLeft = 0,
+    AnchorTop = 0,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Size = Vector2.Zero,
+    Pivot = Vector2.Zero,
+    FitContents = UIContentFit.Y,
+    Spacing = 0,
+    BlocksPointer = false
+}
+
+local defaultSectionHeading = PlayerSectionHeadingFactory.Create(nil)
+defaultSectionHeading.Root.Parent = listLayout
+defaultSectionHeading.NotifyRootIsFirst() # default section heading will always be first
+
+func ComparePlayerOrder(sortValues):
+    return func(a, b):
+        local avs = sortValues[a]
+        local bvs = sortValues[b]
+        local tiers = 0
+        if avs != nil: tiers = avs.length
+        if bvs != nil and bvs.length > tiers: tiers = bvs.length
+
+        for i in range(0, tiers):
+            local av = nil
+            local bv = nil
+            if avs != nil and i < avs.length: av = avs[i]
+            if bvs != nil and i < bvs.length: bv = bvs[i]
+            if av != nil and bv == nil: return true
+            if av == nil and bv != nil: return false
+            if av != nil and bv != nil and av != bv: return av > bv
+
+        return a.Name < b.Name
+
+func UpdatePlayerList():
+    local playerCount = table.count(LeaderboardState.Players)
+    LeaderboardModeEnabled = LeaderboardState.StatNames.length > 0 # OR if there are any teams (when teams are added)
+
+    # LeaderboardState.Players always contains the localplayer, whether we include it in the set size search depends on localPlayerPanel being visible
+    listPanel.Visible = playerCount > 0
+    if not LeaderboardModeEnabled:
+        listPanel.Visible = playerCount > 1
+
+
+    defaultSectionHeading.Root.Visible = LeaderboardModeEnabled
+    localPlayerPanel.Visible = not LeaderboardModeEnabled
+
+    local layoutPreferredWidth = 200
+    if LeaderboardModeEnabled:
+        layoutPreferredWidth = 200 + (60 * LeaderboardState.StatNames.length)
+    layout.Size = new Vector2(layoutPreferredWidth, layout.Size.Y)
+
+    if playerCount == 0:
+        return
+
+    # leaderboard mode ranks by each stat column in order
+    local sortValues = {}
+    if LeaderboardModeEnabled and LeaderboardState.StatNames.length > 0:
+        for plr in LeaderboardState.Players:
+            local values = []
+            for i in range(0, LeaderboardState.StatNames.length):
+                values.push(LeaderboardState.GetStatValue(plr, LeaderboardState.StatNames[i]))
+            sortValues[plr] = values
+
+    local sorted = table.keys(LeaderboardState.Players).sort(ComparePlayerOrder(sortValues))
+    for i in range(0, sorted.length):
+        local map = LeaderboardState.Players[sorted[i]]
+        local root = map.Root
+        local divider = map.Divider
+        root.SortIndex = i * 2 + 1
+        divider.SortIndex = i * 2 + 2
+        divider.Visible = LeaderboardModeEnabled and i != sorted.length - 1
+
+        if map.Player != Players.LocalPlayer:
+            root.Transparency = 0.1
+        else:
+            root.Transparency = 0
+            root.Visible = LeaderboardModeEnabled
+
+func OnPlayerAdded(plr):
+    if table.has(LeaderboardState.Players, plr):
+        return
+
+    local item = PlayerRowFactory.Create(plr)
+    item.Root.Parent = listLayout
+    item.Divider.Parent = listLayout
+    LeaderboardState.Players[plr] = item
+    LeaderboardState.WatchPlayer(plr)
+    LeaderboardState.RequestUpdate()
+
+func OnPlayerRemoved(plr):
+    local item = LeaderboardState.Players[plr]
+    if not item:
+        return
+
+    LeaderboardState.UnwatchPlayer(plr)
+    table.remove(LeaderboardState.Players, plr)
+    item.Destroy()
+    LeaderboardState.RequestUpdate()
+
+func SetPlayerListMinimized(minimized):
+    Minimized = minimized
+    if leaderboardTween:
+        leaderboardTween.Destroy()
+
+    if Minimized:
+        leaderboardTween = Tween.Play(layout, new TweenParams(0.2, EasingFunc.Quad, EasingTrans.Out), { Position = new Vector2(0, 10), Pivot = new Vector2(0, 0) })
+    else:
+        leaderboardTween = Tween.Play(layout, new TweenParams(0.2, EasingFunc.Quad, EasingTrans.Out), { Position = new Vector2(-10, 10), Pivot = new Vector2(1, 0) })
+
+func OnKeyPressed(keyName):
+    if keyName != KeyName.Tab:
+        return
+
+    if GuiRoot.IsTextFieldFocused:
+        return
+
+    SetPlayerListMinimized(not Minimized)
+
+LeaderboardModeEnabled = true
+
+Players.PlayerAdded.Connect(OnPlayerAdded)
+Players.PlayerRemoved.Connect(OnPlayerRemoved)
+game.InputSystem.KeyPressed.Connect(OnKeyPressed)
+orderChangedEvent.Connect(UpdatePlayerList)
+
+for plr in Players.GetPlayers():
+    OnPlayerAdded(plr)
+
+UpdatePlayerList()

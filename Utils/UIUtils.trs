@@ -1,0 +1,32 @@
+###
+    UIUtils.trs
+    Type: Module
+    Description: Provides useful UI utility functions
+###
+
+DefaultTextColor = new Color4(0.784, 0.784, 0.784)
+
+func CreateGenericHudPanel():
+    return new UIPanel() {
+        Color = new Color4(0.6, 0.6, 0.6),
+        Roundness = 15,
+        Style = UIPanelStyle.FrostedGlass
+    }
+
+func CreateLabel(name, text):
+    return new UITextPanel() {
+        Name = name,
+        Text = text,
+        Color = new Color4(0, 0, 0, 0),
+        TextColor = DefaultTextColor,
+        TextSize = 16,
+        FontName = FontName.Lexend,
+        BlocksPointer = false,
+        FitContents = UIContentFit.XY
+    }
+
+return {
+    DefaultTextColor = DefaultTextColor,
+    CreateGenericHudPanel = CreateGenericHudPanel,
+    CreateLabel = CreateLabel
+}

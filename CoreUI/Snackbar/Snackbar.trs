@@ -1,0 +1,14 @@
+###
+    Snackbar.trs
+    Type: Module
+    Description: Provides snackbar state
+###
+
+State = {
+    SnackbarEvent = nil # set by SnackbarUI
+}
+
+State.Push = func(data):
+    State.SnackbarEvent.Fire(data)
+
+return State

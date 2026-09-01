@@ -1,0 +1,74 @@
+###
+    MiscUtils.trs
+    Type: Module
+    Description: Provides miscellaneous utility functions
+###
+
+func formatNumberValueString(value):
+    # in case we add different locales
+    local SUFFIX_THOUSANDS = "k"
+    local SUFFIX_MILLIONS = "m"
+    local THOUSANDS_SEPARATOR = "," # currently unused
+
+    local MAX_VALUE = 999999999 # limit to 999m in either direction
+    local MAX_DIGITS = 3
+
+    local number = math.clamp(math.trunc(value or 0), -MAX_VALUE, MAX_VALUE)
+    local negative = number < 0
+    local magnitude = math.abs(number)
+
+    local suffix = ""
+    local scale = 1
+    if magnitude >= 1000000:
+        suffix = SUFFIX_MILLIONS
+        scale = 1000000
+    elif magnitude >= 1000:
+        suffix = SUFFIX_THOUSANDS
+        scale = 1000
+
+    local whole = math.trunc(magnitude / scale)
+    local text = tostring(whole)
+
+    local decimals = MAX_DIGITS - string.length(text)
+    if scale > 1 and decimals > 0:
+        local factor = math.trunc(math.pow(10, decimals))
+        local fraction = math.trunc(magnitude / (scale / factor)) - whole * factor
+        if fraction > 0:
+            local fractionText = tostring(fraction)
+            while string.length(fractionText) < decimals:
+                fractionText = "0" + fractionText
+            
+            # drop trailing zeros it never shows "1.50k"
+            while string.ends_with(fractionText, "0"):
+                fractionText = string.substring(fractionText, 0, string.length(fractionText) - 1)
+            if not string.is_empty(fractionText):
+                text = text + "." + fractionText
+
+    text = text + suffix
+    if negative:
+        text = "-" + text
+
+    return text
+
+func createConnectionGroup():
+    # collects event connections so an owner can drop them all with one call
+    local connections = []
+
+    local add = func(connection):
+        if connection:
+            connections.push(connection)
+        return connection
+
+    local disconnectAll = func():
+        while connections.length > 0:
+            connections.pop().Disconnect()
+
+    return {
+        Add = add,
+        DisconnectAll = disconnectAll
+    }
+
+return {
+    FormatNumberValueString = formatNumberValueString,
+    CreateConnectionGroup = createConnectionGroup
+}

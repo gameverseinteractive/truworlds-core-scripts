@@ -1,0 +1,175 @@
+###
+    ToastUI.trs
+    Attached to: ScreenUI
+    Description: Controls the toast UI
+###
+
+UIUtils = import("/Utils/UIUtils")
+Toast = import("Toast")
+SoundUtils = import("/Utils/SoundUtils")
+
+local toastEvent = new LocalEvent() {
+    Name = "ToastEvent",
+    Parent = this
+}
+
+Toast.ToastEvent = toastEvent
+
+IsActive = false
+ToastQueue = []
+
+TOAST_PREFERRED_WIDTH = 400
+TOAST_HEIGHT = 48
+TOAST_PADDING = 4
+TOAST_Y_POSITION = 32
+
+local toastContainer = UIUtils.CreateGenericHudPanel()
+toastContainer.Name = "ToastPanel"
+toastContainer.Parent = this
+toastContainer.Size = Vector2.Zero
+toastContainer.MinSize = new Vector2(TOAST_HEIGHT, TOAST_HEIGHT)
+toastContainer.AnchorLeft = 0.5
+toastContainer.AnchorRight = 0.5
+toastContainer.Position = new Vector2(0, -TOAST_HEIGHT)
+toastContainer.Pivot = new Vector2(0.5, 0)
+toastContainer.Roundness = 50
+toastContainer.Visible = false
+toastContainer.BlocksPointer = false
+
+local toastLayout = new UIHorizontalLayout() {
+    Name = "ToastLayout",
+    Parent = toastContainer,
+    AnchorLeft = 0,
+    AnchorTop = 0,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Size = Vector2.Zero,
+    Padding = Vector2.One * TOAST_PADDING
+}
+
+local toastImageContainer = new UIPanel() {
+    Name = "ToastImageContainer",
+    Parent = toastLayout,
+    Size = Vector2.Zero,
+    MinSize = Vector2.One * (TOAST_HEIGHT - TOAST_PADDING * 2),
+    Roundness = 50,
+    Color = new Color4(0.1, 0.1, 0.1, 1),
+    Visible = true,
+}
+
+local toastImagePanel = new UIPanel() {
+    Name = "toastImageContainer",
+    Parent = toastImageContainer,
+    Size = new Vector2(24, 24),
+    AnchorLeft = 0.5,
+    AnchorTop = 0.5,
+    AnchorRight = 0.5,
+    AnchorBottom = 0.5,
+    Pivot = new Vector2(0.5, 0.5),
+    Roundness = 50,
+}
+local toastImage = new UIBackgroundImage() {
+    Parent = toastImagePanel
+}
+
+local toastContentLayout = new UIVerticalLayout() {
+    Name = "ToastContentLayout",
+    Parent = toastLayout,
+    FlexRatio = 1,
+    Padding = new Vector2(0, 2)
+}
+
+local toastTitleText = new UITextPanel() {
+    Name = "ToastTitle",
+    Parent = toastContentLayout,
+    Text = "",
+    FontName = FontName.Lexend,
+    TextSize = 12,
+    FlexRatio = 0.45,
+    TextColor = new Color4(1, 1, 1, 0.9),
+    Color = new Color4(0, 0, 0, 0),
+    TextAlignment = UITextAlignment.Center,
+    TextVerticalAlignment = UITextVerticalAlignment.Center,
+}
+
+local toastText = new UITextPanel() {
+    Name = "ToastText",
+    Parent = toastContentLayout,
+    Text = "",
+    FontName = FontName.Lexend,
+    TextSize = 13,
+    FlexRatio = 0.55,
+    TextColor = new Color4(1, 1, 1, 1),
+    Color = new Color4(0, 0, 0, 0),
+    TextAlignment = UITextAlignment.Center,
+    TextVerticalAlignment = UITextVerticalAlignment.Center,
+}
+
+func revealToast():
+    toastContainer.Visible = true
+    toastContainer.MinSize = new Vector2(TOAST_HEIGHT, TOAST_HEIGHT)
+    toastContainer.Position = new Vector2(0, -TOAST_HEIGHT)
+    toastContentLayout.Transparency = 1
+
+    Tween.Play(toastContainer, new TweenParams(0.25, EasingFunc.Sine, EasingTrans.Out), {
+        Position = new Vector2(0, TOAST_Y_POSITION)
+    })
+    Tween.Play(toastContainer, new TweenParams(0.25, EasingFunc.Quad, EasingTrans.Out, 0.075), {
+        MinSize = new Vector2(TOAST_PREFERRED_WIDTH, TOAST_HEIGHT)
+    })
+    local fadeIn = Tween.Play(toastContentLayout, new TweenParams(0.25, EasingFunc.Linear, EasingTrans.Out, 0.075), {
+        Transparency = 0
+    })
+    fadeIn.Completed.Wait()
+
+func hideToast():
+    Tween.Play(toastContainer, new TweenParams(0.25, EasingFunc.Quad, EasingTrans.In), {
+        MinSize = new Vector2(TOAST_HEIGHT, TOAST_HEIGHT)
+    })
+    Tween.Play(toastContentLayout, new TweenParams(0.2, EasingFunc.Linear), {
+        Transparency = 1
+    })
+    local slideOut = Tween.Play(toastContainer, new TweenParams(0.25, EasingFunc.Quad, EasingTrans.In, 0.05), {
+        Position = new Vector2(0, -TOAST_HEIGHT)
+    })
+    slideOut.Completed.Wait()
+    toastContainer.Visible = false
+
+func handleToast(data):
+    if IsActive:
+        ToastQueue.push(data)
+        return
+
+    IsActive = true
+
+    toastText.Text = data.Text
+
+    local hasTitle = data.Title != nil
+    if hasTitle:
+        toastTitleText.Text = data.Title
+    else:
+        toastTitleText.Text = ""
+    toastTitleText.Visible = hasTitle
+
+    local hasImageId = data.ImageId != nil
+    if hasImageId:
+        toastImage.ImageId = data.ImageId
+    else:
+        toastImage.ImageId = ""
+    toastImageContainer.Visible = hasImageId
+
+    if data.PlaySoundId:
+        SoundUtils.Play(data.PlaySoundId)
+    
+    revealToast()
+    wait(4)
+    if ToastQueue.length == 0:
+        wait(4)
+    hideToast()
+    wait(0.25)
+
+    IsActive = false
+    if ToastQueue.length > 0:
+        handleToast(ToastQueue.remove_at(0))
+
+toastEvent.Connect(handleToast)

@@ -1,0 +1,49 @@
+###
+    ThumbnailUtils.trs
+    Type: Module
+    Description: Provides useful thumbnail utility functions
+###
+
+LEADERBOARD_ICONS_DIR = "local://leaderboard_icons"
+
+func GetPlayerHeadshotIdForPlayer(forPlayer):
+    if not forPlayer or forPlayer.UserId < 0:
+        return "local://core_ui/default.png"
+    return "user_headshot_thumbnail://" + forPlayer.UserId
+
+###
+    Icon priority list (from highest to lowest):
+    1. Friendship status (TODO)
+    2. World owner designation
+    3. TruWorlds employee/Special player status designation
+    4. Membership status (Pro, Star, Legend)
+###
+func GetPlayerListIconIdForPlayer(forPlayer):
+    if not forPlayer:
+        return nil
+
+    # --Friendship status--
+    # TODO: add friendship API and friendship status icon
+
+    # --World owner status--
+    if forPlayer.UserId == world.CreatorId:
+        return LEADERBOARD_ICONS_DIR + "/world_owner.png"
+
+    # --Crew Member (TruWorlds employee) status--
+    if forPlayer.IsElevatedUser:
+        return LEADERBOARD_ICONS_DIR + "/crew.png"
+
+    # --Membership status--
+    if forPlayer.MemberTier == MemberTier.Pro:
+        return LEADERBOARD_ICONS_DIR + "/pro.png"
+    elif forPlayer.MemberTier == MemberTier.Star:
+        return LEADERBOARD_ICONS_DIR + "/star.png"
+    elif forPlayer.MemberTier == MemberTier.Legend:
+        return LEADERBOARD_ICONS_DIR + "/legend.png"
+
+    return nil
+
+return {
+    GetPlayerHeadshotIdForPlayer = GetPlayerHeadshotIdForPlayer,
+    GetPlayerListIconIdForPlayer = GetPlayerListIconIdForPlayer
+}

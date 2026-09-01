@@ -1,0 +1,23 @@
+###
+    FirstPersonReticleUI.trs
+    Attached to: ScreenUI
+    Description: Shows the first person crosshair
+###
+
+local dot = new UICircle() {
+    Parent = this,
+    AnchorTop = 0.5,
+    AnchorLeft = 0.5,
+    AnchorRight = 0.5,
+    AnchorBottom = 0.5,
+    Pivot = new Vector2(0.5, 0.5),
+    Size = new Vector2(6, 6),
+    BorderWidth = 1,
+    Transparency = 0.25,
+    BlocksPointer = false
+}
+
+game.TimeSystem.FrameStepped.Connect(func():
+    # can we optimize this every frame check to only when it changes or is this pretty cheap?
+    dot.Visible = world.CurrentCamera.IsInFirstPerson
+)

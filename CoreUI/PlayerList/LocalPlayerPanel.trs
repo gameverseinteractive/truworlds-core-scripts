@@ -1,0 +1,145 @@
+###
+    LocalPlayerPanel.trs
+    Attached to: UIPanel
+    Description: Shows a badge that displays information about the local player in the player list
+###
+
+ThumbnailUtils = import("/Utils/ThumbnailUtils")
+UIUtils = import("/Utils/UIUtils")
+
+Players = game.Players
+
+BADGE_SIZE = 24
+NAME_TEXT_SIZE = 14
+UNKNOWN_PLAYER_NAME = "???"
+
+func CreateNameplate(options):
+    local stretchName = options.StretchName
+    local reserveBadgeSpace = options.ReserveBadgeSpace
+
+    local player = nil
+
+    local root = new UIHorizontalLayout() {
+        Name = "nameplate",
+        Spacing = 5,
+        CrossAlign = UICrossAlignment.Center,
+        BlocksPointer = false
+    }
+    if stretchName:
+        root.FitContents = UIContentFit.None
+    else:
+        root.FitContents = UIContentFit.X
+
+    local badgePanel = new UIPanel() {
+        Name = "badge",
+        Parent = root,
+        MinSize = new Vector2(BADGE_SIZE, BADGE_SIZE),
+        BlocksPointer = false
+    }
+
+    local badgeImage = new UIBackgroundImage() {
+        Parent = badgePanel,
+        Fit = UIImageFit.Center
+    }
+
+    local nameText = UIUtils.CreateLabel("name", "")
+    nameText.TextColor = new Color4(1, 1, 1)
+    nameText.TextSize = NAME_TEXT_SIZE
+    nameText.Parent = root
+    if stretchName:
+        nameText.FitContents = UIContentFit.Y
+        nameText.FlexRatio = 1
+        nameText.ShowEllipsis = true
+
+    local Refresh = func():
+        if player:
+            nameText.Text = player.Name
+        else:
+            nameText.Text = UNKNOWN_PLAYER_NAME
+
+        local badgeId = ThumbnailUtils.GetPlayerListIconIdForPlayer(player)
+        badgeImage.ImageId = badgeId or ""
+
+        if reserveBadgeSpace:
+            if badgeId:
+                badgePanel.Transparency = 0
+            else:
+                badgePanel.Transparency = 1
+        else:
+            badgePanel.Visible = badgeId != nil
+
+    local SetPlayer = func(forPlayer):
+        player = forPlayer
+        Refresh()
+
+    Refresh()
+
+    return {
+        Root = root,
+        SetPlayer = SetPlayer,
+        Refresh = Refresh
+    }
+
+local playerPropChangedConnection = nil
+local contents = new UIHorizontalLayout() {
+    Name = "contents",
+    Parent = this,
+    Spacing = 5,
+    AnchorLeft = 0,
+    AnchorTop = 0,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Size = Vector2.Zero,
+    Pivot = Vector2.Zero,
+    BlocksPointer = false,
+    Padding = new Vector2(4, 4)
+}
+
+local imageContainer = new UIPanel() {
+    Name = "imageContainer",
+    Parent = contents,
+    MinSize = new Vector2(40, 40),
+    Roundness = 11,
+    Color = new Color4(0.075, 0.075, 0.075)
+}
+
+local imagePanel = new UIPanel() {
+    Parent = imageContainer,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Size = Vector2.Zero,
+    Roundness = imageContainer.Roundness
+}
+
+local image = new UIBackgroundImage() {
+    Parent = imagePanel,
+    Fit = UIImageFit.Center
+}
+
+local nameplate = CreateNameplate({})
+nameplate.Root.Parent = contents
+
+func UpdatePlayerInformation():
+    image.ImageId = ThumbnailUtils.GetPlayerHeadshotIdForPlayer(Players.LocalPlayer)
+
+func OnLocalPlayerPropChanged(propertyName):
+    nameplate.Refresh()
+    UpdatePlayerInformation()
+
+func TryLocalPlayer():
+    if playerPropChangedConnection:
+        playerPropChangedConnection.Disconnect()
+        playerPropChangedConnection = nil
+
+    if Players.LocalPlayer:
+        playerPropChangedConnection = Players.LocalPlayer.Changed.Connect(OnLocalPlayerPropChanged)
+
+func OnLocalPlayerChanged():
+    TryLocalPlayer()
+    nameplate.SetPlayer(Players.LocalPlayer)
+    UpdatePlayerInformation()
+
+Players.LocalPlayerChanged.Connect(OnLocalPlayerChanged)
+TryLocalPlayer()
+nameplate.SetPlayer(Players.LocalPlayer)
+UpdatePlayerInformation()

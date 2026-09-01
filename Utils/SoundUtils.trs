@@ -1,0 +1,26 @@
+###
+    SoundUtils.trs
+    Type: Module
+    Description: Helper functions to play UI sound effects
+###
+
+local audioDirectory = new Folder() {
+    Name = "Sounds",
+    Parent = game.CoreUI
+}
+
+func playSound(id, volume):
+    if not volume:
+        volume = 1
+    new Audio() {
+        AudioId = id,
+        AutoStart = true,
+        OneShot = true,
+        Volume = volume,
+        TypeHint = AudioTypeHint.SoundEffect,
+        Parent = audioDirectory
+    }
+
+return {
+    Play = playSound
+}

@@ -1,0 +1,62 @@
+###
+    MountUI.trs
+    Type: Core Script
+    Description: Creates core UI instances and attaches their corresponding scripts
+###
+
+# make sure these name paths are always correct
+CORE_UIS = [
+    {
+        Name = "PlayerList",
+        ScriptPath = "CoreUI/PlayerList/PlayerListUI",
+        Priority = 1,
+        DisplayOrder = 10
+    },
+    {
+        Name = "Toast",
+        ScriptPath = "CoreUI/Toast/ToastUI",
+        Priority = 1,
+        DisplayOrder = 25
+    },
+    {
+        Name = "Snackbar",
+        ScriptPath = "CoreUI/Snackbar/SnackbarUI",
+        Priority = 1,
+        DisplayOrder = 25
+    },
+    {
+        Name = "FirstPersonReticle",
+        ScriptPath = "CoreUI/Indicators/FirstPersonReticleUI",
+        Priority = 0,
+        DisplayOrder = 1
+    },
+    {
+        Name = "CtrlLockIndicator",
+        ScriptPath = "CoreUI/Indicators/CtrlLockIndicatorUI",
+        Priority = 0,
+        DisplayOrder = 1
+    }
+]
+
+PLAYER_LIST_SCRIPT_PATH = "CoreUI/PlayerList/PlayerListUI"
+FIRST_PERSON_RETICLE_SCRIPT_PATH = "CoreUI/Indicators/FirstPersonReticleUI"
+CTRL_LOCK_INDICATOR_SCRIPT_PATH = "CoreUI/Indicators/CtrlLockIndicatorUI"
+TOAST_SCRIPT_PATH = "CoreUI/Toast/ToastUI"
+SNACKBAR_SCRIPT_PATH = "CoreUI/Snackbar/SnackbarUI"
+
+CoreUI = game.CoreUI
+
+func MountUI(description):
+    local ui = new ScreenUI() {
+        Parent = CoreUI,
+        Name = description.Name + "UI",
+        Priority = description.Priority,
+        DisplayOrder = description.DisplayOrder
+    }
+    ui.AttachCoreScript(description.ScriptPath)
+
+for description in CORE_UIS:
+    try:
+        MountUI(description)
+    catch err:
+        error(string.format("Couldn't mount CoreUI: {0}\n{1}", err, err.stackTrace))

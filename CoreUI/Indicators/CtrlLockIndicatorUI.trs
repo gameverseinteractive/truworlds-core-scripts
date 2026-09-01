@@ -1,0 +1,79 @@
+###
+    CtrlLockIndicatorUI.trs
+    Attached to: ScreenUI
+    Description: Shows an indicator if the camera is in Ctrl Lock mode
+###
+
+local indicator = new UIPanel() {
+    Parent = this,
+    BlocksPointer = false,
+    AnchorTop = 1,
+    AnchorLeft = 0,
+    AnchorRight = 0,
+    AnchorBottom = 1,
+    Color = new Color4(0.6, 0.6, 0.6),
+    Position = new Vector2(10, -16),
+    Pivot = new Vector2(0, 1),
+    Size = new Vector2(34, 34),
+    BorderWidth = 2,
+    Roundness = 24,
+    Style = UIPanelStyle.FrostedGlass
+}
+
+local ctrlTextPanel = new UIPanel() {
+    Parent = indicator,
+    BlocksPointer = false,
+    AnchorTop = 1,
+    AnchorLeft = 0,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Color = new Color4(0.6, 0.6, 0.6),
+    Position = new Vector2(0, 2),
+    Pivot = new Vector2(0.5, 0.5),
+    Size = new Vector2(4, 12),
+    Roundness = 2,
+    Style = UIPanelStyle.FrostedGlass
+}
+
+# manually adjusting the offset so the text is visually centered
+# might have to adjust on sailcloth project branch
+local ctrlText = new UITextPanel() {
+    Parent = ctrlTextPanel,
+    BlocksPointer = false,
+    AnchorTop = 0.5,
+    AnchorLeft = 0,
+    AnchorRight = 1,
+    AnchorBottom = 0.5,
+    Color = new Color4(0, 0, 0, 0),
+    Position = new Vector2(0, -1),
+    Pivot = new Vector2(0.5, 0.5),
+    Size = new Vector2(0, 12),
+    Text = "ctrl",
+    FontName = FontName.Lexend,
+    TextSize = 11,
+    TextColor = new Color4(1, 1, 1, 1),
+    TextAlignment = UITextAlignment.Center,
+    TextVerticalAlignment = UITextVerticalAlignment.Center,
+}
+
+local iconPanel = new UIPanel() {
+    Parent = indicator,
+    BlocksPointer = false,
+    AnchorTop = 0.5,
+    AnchorLeft = 0.5,
+    AnchorRight = 0.5,
+    AnchorBottom = 0.5,
+    Position = new Vector2(0, -1),
+    Pivot = new Vector2(0.5, 0.5),
+    Size = new Vector2(16, 16)
+}
+
+local iconImage = new UIBackgroundImage() {
+    Parent = iconPanel,
+    ImageId = "local://core_ui/ctrl_lock_icon.png"
+}
+
+game.TimeSystem.FrameStepped.Connect(func():
+    # can we optimize this every frame check to only when it changes or is this pretty cheap?
+    indicator.Visible = world.CurrentCamera.CtrlLockEnabled
+)

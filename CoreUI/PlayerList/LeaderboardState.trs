@@ -1,0 +1,177 @@
+###
+    LeaderboardState.trs
+    Type: Module
+    Description: Provides a global table that stores the leaderboard state and has functionality to watch for changes
+###
+
+MiscUtils = import("/Utils/MiscUtils")
+
+State = {
+    Players = {},
+    StatNames = [],
+    StatNamesChanged = nil,
+    OrderChanged = nil
+}
+
+watchers = {}
+
+## --- batched updates ---
+## Because many players or stats can update at once, this script has an optimization using a flushing mechanism that only updates the state once per game tick
+columnsDirty = false
+flushScheduled = false
+
+MAX_STAT_NAMES = 4 # hard limit to 4 columns for now, too many and the player list can get too long and cover gameplay/other ui
+
+func recomputeStatNames():
+    local found = []
+    local numFound = 0
+    for plr in watchers:
+        local stats = plr.FindFirstChild("Stats")
+        if not stats: continue
+        for child in stats:
+            if child.IsA("NumberValue") and not found.contains(child.Name):
+                found.push(child.Name)
+                numFound++
+                if numFound >= 4:
+                    break
+
+    # if a new stat was added/removed to a player, we need to do the following:
+    # - keep the existing column order stable (TODO: let scripters customize the sorting of stats)
+    # - append newly discovered names
+    # - drop removed ones
+    local updated = []
+    for name in State.StatNames:
+        if found.contains(name):
+            updated.push(name)
+    for name in found:
+        if not updated.contains(name):
+            updated.push(name)
+
+    local changed = updated.length != State.StatNames.length
+    if not changed:
+        for i in range(0, updated.length):
+            if updated[i] != State.StatNames[i]:
+                changed = true
+
+    State.StatNames = updated
+    return changed
+
+func flush():
+    local columnsChanged = false
+    if columnsDirty:
+        columnsDirty = false
+        columnsChanged = recomputeStatNames()
+
+    if columnsChanged and State.StatNamesChanged:
+        State.StatNamesChanged.Fire()
+    if State.OrderChanged:
+        State.OrderChanged.Fire()
+
+func markDirty(columns):
+    if columns:
+        columnsDirty = true
+    if flushScheduled:
+        return
+
+    # debounce by 1 frame so all changes in a tick batch into one update
+    flushScheduled = true
+    spawn(func():
+        wait()
+        flushScheduled = false
+        flush()
+    )
+
+## --- per-player stat watching ---
+func watchPlayer(plr):
+    if table.has(watchers, plr):
+        return
+
+    local playerConnectionGroup = MiscUtils.CreateConnectionGroup()
+    local folderConnectionGroup = MiscUtils.CreateConnectionGroup()
+    local statConnections = {}
+    local statsFolder = nil
+
+    func watchStat(stat):
+        if not stat.IsA("NumberValue"): return
+        if table.has(statConnections, stat): return
+        statConnections[stat] = stat.Changed.Connect(func(prop):
+            if prop == "Name":
+                markDirty(true)
+            elif prop == "Value":
+                markDirty(false)
+        )
+
+    func unwatchStat(stat):
+        local connection = statConnections[stat]
+        if connection:
+            connection.Disconnect()
+            table.remove(statConnections, stat)
+
+    func clearStatConnections():
+        for stat in statConnections:
+            statConnections[stat].Disconnect()
+        table.clear(statConnections)
+
+    func setStatsFolder(folder):
+        folderConnectionGroup.DisconnectAll()
+        clearStatConnections()
+        statsFolder = folder
+
+        if folder:
+            folderConnectionGroup.Add(folder.ChildAdded.Connect(func(child):
+                watchStat(child)
+                markDirty(true)
+            ))
+            folderConnectionGroup.Add(folder.ChildRemoved.Connect(func(child):
+                unwatchStat(child)
+                markDirty(true)
+            ))
+            for child in folder:
+                watchStat(child)
+
+        markDirty(true)
+
+    playerConnectionGroup.Add(plr.ChildAdded.Connect(func(child):
+        if child.Name == "Stats" and not statsFolder:
+            setStatsFolder(child)
+    ))
+    playerConnectionGroup.Add(plr.ChildRemoved.Connect(func(child):
+        if child == statsFolder:
+            setStatsFolder(nil)
+    ))
+
+    func destroy():
+        playerConnectionGroup.DisconnectAll()
+        folderConnectionGroup.DisconnectAll()
+        clearStatConnections()
+
+    watchers[plr] = { Destroy = destroy }
+    setStatsFolder(plr.FindFirstChild("Stats"))
+
+func unwatchPlayer(plr):
+    local watcher = watchers[plr]
+    if not watcher:
+        return
+
+    table.remove(watchers, plr)
+    watcher.Destroy()
+    markDirty(true)
+
+func requestUpdate():
+    markDirty(false)
+
+func getStatValue(plr, statName):
+    local stats = plr.FindFirstChild("Stats")
+    if not stats: return nil
+    local statInstance = stats.FindFirstChild(statName)
+    if not statInstance or not statInstance.IsA("NumberValue"): return nil
+    local value = statInstance.Value
+    if value != value: return nil # NaN
+    return value
+
+State.WatchPlayer = watchPlayer
+State.UnwatchPlayer = unwatchPlayer
+State.RequestUpdate = requestUpdate
+State.GetStatValue = getStatValue
+
+return State

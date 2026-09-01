@@ -1,0 +1,130 @@
+###
+    PlayerSectionHeaderFactory.trs
+    Type: Module
+    Description: Factory module to create a row section (e.g., for teams)
+###
+
+UIUtils = import("/Utils/UIUtils")
+ThumbnailUtils = import("/Utils/ThumbnailUtils")
+LeaderboardState = import("LeaderboardState")
+MiscUtils = import("/Utils/MiscUtils")
+
+SECTION_HEIGHT = 28
+TEXT_SIZE = 12
+
+func Create(forTeam):
+    local connections = MiscUtils.CreateConnectionGroup()
+
+    local headerColor = new Color4(0, 0, 0, 0.5)
+    if forTeam:
+        # headerColor = TODO
+        pass
+
+    local root = new UIPanel() {
+        Name = "PlayerSectionHeader",
+        BlocksPointer = false,
+        MinSize = new Vector2(0, SECTION_HEIGHT),
+        Size = new Vector2(0, 0),
+        Color = headerColor
+    }
+
+    local layout = new UIHorizontalLayout() {
+        Parent = root,
+        AnchorTop = 0,
+        AnchorLeft = 0,
+        AnchorBottom = 1,
+        AnchorRight = 1,
+        Spacing = 5,
+        CrossAlign = UICrossAlignment.Center,
+        BlocksPointer = false,
+        Size = new Vector2(0, 0),
+        Padding = new Vector2(6, 0),
+        FitContents = UIContentFit.None,
+        Name = "playerSectionHeading",
+    }
+
+    local TEXT_COLOR = new Color4(0.9, 0.9, 0.9)
+
+    # Team name column text (above player name)
+    local nameText = UIUtils.CreateLabel("TeamName", "")
+    nameText.TextColor = TEXT_COLOR
+    nameText.TextSize = TEXT_SIZE
+    nameText.Parent = layout
+    nameText.FitContents = UIContentFit.Y
+    nameText.FlexRatio = 1
+    nameText.ShowEllipsis = true
+    nameText.Padding = new Vector2(6, 0)
+
+    # Stat name labels
+    local statNameLabelMap = {}
+    func LoadStatNameLabels():
+        for key in statNameLabelMap:
+            statNameLabelMap[key].Destroy()
+        table.clear(statNameLabelMap)
+
+        for statName in LeaderboardState.StatNames:
+            local statNameLabel = UIUtils.CreateLabel("StatNameLabel", statName)
+            statNameLabel.TextColor = TEXT_COLOR
+            statNameLabel.TextSize = TEXT_SIZE
+            statNameLabel.Parent = layout
+            statNameLabel.FitContents = UIContentFit.Y
+            statNameLabel.MinSize = new Vector2(60, 0)
+            statNameLabel.ShowEllipsis = true
+
+            statNameLabelMap[statName] = statNameLabel
+
+    connections.Add(LeaderboardState.StatNamesChanged.Connect(LoadStatNameLabels))
+    LoadStatNameLabels()
+
+    local divider = new UIPanel() {
+        Name = "Divider",
+        MinSize = new Vector2(0, 1),
+        Color = new Color4(0.5, 0.5, 0.5, 0.6)
+    }
+
+    func Refresh():
+        nameText.Text = "Players"
+
+    func NotifyRootIsFirst():
+        root.RoundnessTopLeft = 15
+        root.RoundnessTopRight = 15
+        root.RoundnessBottomLeft = 0
+        root.RoundnessBottomRight = 0
+
+    func NotifyRootIsLast():
+        root.RoundnessTopLeft = 0
+        root.RoundnessTopRight = 0
+        root.RoundnessBottomLeft = 0
+        root.RoundnessBottomRight = 0
+
+    func NotifyRootIsMiddle():
+        root.RoundnessTopLeft = 0
+        root.RoundnessTopRight = 0
+        root.RoundnessBottomLeft = 0
+        root.RoundnessBottomRight = 0
+
+    Refresh()
+
+    if forTeam:
+        connections.Add(forTeam.Changed.Connect(func(propertyName):
+            Refresh()
+        ))
+
+    local Destroy = func():
+        connections.DisconnectAll()
+        root.Destroy()
+        divider.Destroy()
+
+    return {
+        Root = root,
+        Divider = divider,
+        ForTeam = forTeam,
+        Destroy = Destroy,
+        NotifyRootIsFirst = NotifyRootIsFirst,
+        NotifyRootIsLast = NotifyRootIsLast,
+        NotifyRootIsMiddle = NotifyRootIsMiddle
+    }
+
+return {
+    Create = Create
+}

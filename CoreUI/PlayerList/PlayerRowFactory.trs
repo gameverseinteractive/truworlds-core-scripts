@@ -1,0 +1,121 @@
+###
+    PlayerRowFactory.trs
+    Type: Module
+    Description: Factory module to create player row in the player list
+###
+
+UIUtils = import("/Utils/UIUtils")
+ThumbnailUtils = import("/Utils/ThumbnailUtils")
+LeaderboardState = import("LeaderboardState")
+MiscUtils = import("/Utils/MiscUtils")
+
+ROW_HEIGHT = 38
+BADGE_SIZE = 24
+NAME_TEXT_SIZE = 14
+UNKNOWN_PLAYER_NAME = "???"
+
+func Create(forPlayer):
+    local connections = MiscUtils.CreateConnectionGroup()
+
+    local root = new UIHorizontalLayout() {
+        Name = "PlayerListItem",
+        Spacing = 5,
+        CrossAlign = UICrossAlignment.Center,
+        BlocksPointer = false,
+        Padding = new Vector2(6, 0),
+        FitContents = UIContentFit.None,
+        MinSize = new Vector2(0, ROW_HEIGHT)
+    }
+
+    local badgePanel = new UIPanel() {
+        Name = "Badge",
+        Parent = root,
+        MinSize = new Vector2(BADGE_SIZE, BADGE_SIZE),
+        BlocksPointer = false
+    }
+
+    local badgeImage = new UIBackgroundImage() {
+        Parent = badgePanel,
+        Fit = UIImageFit.Center
+    }
+
+    # Player name label
+    local nameText = UIUtils.CreateLabel("Name", "")
+    nameText.TextColor = new Color4(1, 1, 1)
+    nameText.TextSize = NAME_TEXT_SIZE
+    nameText.Parent = root
+    nameText.FitContents = UIContentFit.Y
+    nameText.FlexRatio = 1
+    nameText.ShowEllipsis = true
+
+    local statValueCells = {}
+
+    func RefreshStatValueCells():
+        for statName in statValueCells:
+            local value = LeaderboardState.GetStatValue(forPlayer, statName)
+            if value != nil:
+                statValueCells[statName].Text = MiscUtils.FormatNumberValueString(value)
+            else:
+                statValueCells[statName].Text = ""
+
+    func LoadStatValueCells():
+        for statName in statValueCells:
+            statValueCells[statName].Destroy()
+        table.clear(statValueCells)
+
+        for statName in LeaderboardState.StatNames:
+            local statValueLabel = UIUtils.CreateLabel("ValueCell", "")
+            statValueLabel.TextColor = new Color4(1, 1, 1)
+            statValueLabel.TextSize = NAME_TEXT_SIZE
+            statValueLabel.Parent = root
+            statValueLabel.FitContents = UIContentFit.Y
+            statValueLabel.MinSize = new Vector2(60, 0)
+            statValueLabel.ShowEllipsis = true
+            statValueCells[statName] = statValueLabel
+
+        RefreshStatValueCells()
+
+    connections.Add(LeaderboardState.StatNamesChanged.Connect(LoadStatValueCells))
+    connections.Add(LeaderboardState.OrderChanged.Connect(RefreshStatValueCells))
+    LoadStatValueCells()
+
+    local Refresh = func():
+        if forPlayer:
+            nameText.Text = forPlayer.Name
+        else:
+            nameText.Text = UNKNOWN_PLAYER_NAME
+
+        local badgeId = ThumbnailUtils.GetPlayerListIconIdForPlayer(forPlayer)
+        badgeImage.ImageId = badgeId or ""
+
+        if badgeId:
+            badgePanel.Transparency = 0
+        else:
+            badgePanel.Transparency = 1
+
+    local divider = new UIPanel() {
+        Name = "Divider",
+        MinSize = new Vector2(0, 1),
+        Color = new Color4(0.5, 0.5, 0.5, 0.6)
+    }
+
+    connections.Add(forPlayer.Changed.Connect(func(propertyName):
+        Refresh()
+    ))
+    Refresh()
+
+    local Destroy = func():
+        connections.DisconnectAll()
+        root.Destroy()
+        divider.Destroy()
+
+    return {
+        Root = root,
+        Divider = divider,
+        Player = forPlayer,
+        Destroy = Destroy
+    }
+
+return {
+    Create = Create
+}

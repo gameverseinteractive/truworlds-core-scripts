@@ -1,0 +1,14 @@
+###
+    Toast.trs
+    Type: Module
+    Description: Provides toast state
+###
+
+State = {
+    ToastEvent = nil # set by ToastUI
+}
+
+State.Push = func(data):
+    State.ToastEvent.Fire(data)
+
+return State
