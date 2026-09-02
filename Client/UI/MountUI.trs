@@ -13,6 +13,12 @@ CORE_UIS = [
         DisplayOrder = 10
     },
     {
+        Name = "Health",
+        ScriptPath = "CoreUI/Health/HealthUI",
+        Priority = 1,
+        DisplayOrder = 0
+    },
+    {
         Name = "Toast",
         ScriptPath = "CoreUI/Toast/ToastUI",
         Priority = 1,
@@ -33,7 +39,7 @@ CORE_UIS = [
     {
         Name = "CtrlLockIndicator",
         ScriptPath = "CoreUI/Indicators/CtrlLockIndicatorUI",
-        Priority = 0,
+        Priority = 1,
         DisplayOrder = 1
     }
 ]
