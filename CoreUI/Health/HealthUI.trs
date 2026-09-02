@@ -1,0 +1,194 @@
+###
+    HealthUI.trs
+    Attached to: ScreenUI
+    Description: Shows the player's health
+###
+
+MiscUtils = import("/Utils/MiscUtils")
+
+Players = game.Players
+
+HEALTH_BAR_SIZE = new Vector2(384 / 1.75, 39 / 1.75)
+HEALTH_BAR_BOTTOM_MARGIN = 20
+HEALTH_BAR_FADE_DELAY = 5
+HEALTH_BAR_FADE_DURATION = 1
+
+VIGNETTE_MIN_ALPHA = 0.15
+VIGNETTE_MAX_ALPHA = 0.75
+VIGNETTE_IN_DURATION = 0.1
+VIGNETTE_OUT_DURATION = 0.25
+
+local damageVignettePanel = new UIPanel() {
+    Name = "damageVignette",
+    Parent = this,
+    AnchorTop = 0,
+    AnchorLeft = 0,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Size = Vector2.Zero,
+    Pivot = Vector2.Zero,
+    Color = new Color4(1, 1, 1, 1),
+    BlocksPointer = false,
+    Visible = false,
+    Transparency = 1
+}
+
+local damageVignetteImage = new UIBackgroundImage() {
+    Parent = damageVignettePanel,
+    ImageId = "local://core_ui/damage_vignette.png",
+    Fit = UIImageFit.Stretch
+}
+
+local healthBar = new UIPanel() {
+    Name = "healthBar",
+    Parent = this,
+    AnchorTop = 1,
+    AnchorLeft = 0.5,
+    AnchorRight = 0.5,
+    AnchorBottom = 1,
+    Pivot = new Vector2(0.5, 0.5),
+    Position = new Vector2(0, -HEALTH_BAR_BOTTOM_MARGIN),
+    Size = HEALTH_BAR_SIZE,
+    Color = new Color4(1, 1, 1, 1),
+    BlocksPointer = false,
+    Visible = false,
+    Transparency = 1
+}
+
+local healthBarBgImage = new UIBackgroundImage() {
+    Parent = healthBar,
+    ImageId = "local://core_ui/health_bar_bg.png",
+    Fit = UIImageFit.Stretch
+}
+
+# clips the health bar's fill bar
+local healthBarFillClip = new UIPanel() {
+    Name = "fillClip",
+    Parent = healthBar,
+    AnchorTop = 0,
+    AnchorLeft = 0,
+    AnchorRight = 1,
+    AnchorBottom = 1,
+    Size = Vector2.Zero,
+    Pivot = Vector2.Zero,
+    Color = new Color4(0, 0, 0, 0),
+    ClipsChildren = true,
+    BlocksPointer = false
+}
+
+local healthBarFill = new UIPanel() {
+    Name = "fill",
+    Parent = healthBarFillClip,
+    AnchorTop = 0,
+    AnchorLeft = 0,
+    AnchorRight = 0,
+    AnchorBottom = 0,
+    Pivot = Vector2.Zero,
+    Size = HEALTH_BAR_SIZE,
+    Color = new Color4(1, 1, 1, 1),
+    BlocksPointer = false
+}
+
+local healthBarFillImage = new UIBackgroundImage() {
+    Parent = healthBarFill,
+    ImageId = "local://core_ui/health_bar_fill.png",
+    Fit = UIImageFit.Stretch
+}
+
+local character = nil
+local characterConnections = MiscUtils.CreateConnectionGroup()
+local playerConnections = MiscUtils.CreateConnectionGroup()
+
+local fullHealthTimer = 100
+local vignetteTween = nil
+
+func GetHealthFraction():
+    if not character or character.MaxHealth <= 0:
+        return 0
+    return math.clamp(character.Health / character.MaxHealth, 0, 1)
+
+func UpdateHealthBar():
+    local fraction = GetHealthFraction()
+    healthBarFillClip.AnchorRight = fraction
+    healthBarFill.Color = Color4.FromHsv(fraction * 0.33, 0.59, 0.95, 1)
+
+func PlayDamageEffect():
+    if vignetteTween:
+        vignetteTween.Cancel()
+        vignetteTween = nil
+
+    local alpha = math.lerp(VIGNETTE_MIN_ALPHA, VIGNETTE_MAX_ALPHA, 1 - GetHealthFraction())
+    damageVignettePanel.Visible = true
+
+    local fadeIn = Tween.Play(damageVignettePanel, new TweenParams(VIGNETTE_IN_DURATION, EasingFunc.Sine, EasingTrans.Out), {
+        Transparency = 1 - alpha
+    })
+    vignetteTween = fadeIn
+    fadeIn.Completed.Connect(func():
+        local fadeOut = Tween.Play(damageVignettePanel, new TweenParams(VIGNETTE_OUT_DURATION, EasingFunc.Sine, EasingTrans.In), {
+            Transparency = 1
+        })
+        vignetteTween = fadeOut
+        fadeOut.Completed.Connect(func():
+            vignetteTween = nil
+            damageVignettePanel.Visible = false
+        )
+    )
+
+func OnCharacterDamaged():
+    UpdateHealthBar()
+    PlayDamageEffect()
+
+func OnCharacterChanged(propertyName):
+    if propertyName == "Health" or propertyName == "MaxHealth":
+        UpdateHealthBar()
+
+func SetCharacter(newCharacter):
+    characterConnections.DisconnectAll()
+    character = newCharacter
+
+    if character:
+        characterConnections.Add(character.Damaged.Connect(OnCharacterDamaged))
+        characterConnections.Add(character.Changed.Connect(OnCharacterChanged))
+        characterConnections.Add(character.Removed.Connect(func(): SetCharacter(nil)))
+
+    UpdateHealthBar()
+
+func GetCharacter(player):
+    if not player: return nil
+    local playerCharacter = player.Character
+    if playerCharacter and playerCharacter.IsA("CharacterController"):
+        return playerCharacter
+    return nil
+
+func SetLocalPlayer(player):
+    playerConnections.DisconnectAll()
+
+    if player:
+        playerConnections.Add(player.CharacterAdded.Connect(SetCharacter))
+        playerConnections.Add(player.Changed.Connect(func(propertyName):
+            if propertyName == "Character":
+                SetCharacter(GetCharacter(player))
+        ))
+
+    SetCharacter(GetCharacter(player))
+
+func FrameStepped(delta):
+    if not character:
+        healthBar.Visible = false
+        return
+
+    if character.Health == character.MaxHealth:
+        fullHealthTimer = fullHealthTimer + delta
+    elif character.Health != 0:
+        fullHealthTimer = 0
+
+    local fadeProgress = (fullHealthTimer - HEALTH_BAR_FADE_DELAY) / HEALTH_BAR_FADE_DURATION
+    local transparency = math.clamp(fadeProgress, 0, 1)
+    healthBar.Transparency = transparency
+    healthBar.Visible = transparency < 1
+
+Players.LocalPlayerChanged.Connect(func(): SetLocalPlayer(Players.LocalPlayer))
+SetLocalPlayer(Players.LocalPlayer)
+
+game.TimeSystem.FrameStepped.Connect(FrameStepped)
