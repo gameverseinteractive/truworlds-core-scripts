@@ -172,9 +172,6 @@ func OnKeyPressed(keyName):
     if keyName != KeyName.Tab:
         return
 
-    if GuiRoot.IsTextFieldFocused:
-        return
-
     SetPlayerListMinimized(not Minimized)
 
 LeaderboardModeEnabled = true

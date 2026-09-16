@@ -1,8 +1,10 @@
 ###
     CtrlLockIndicatorUI.trs
     Attached to: ScreenUI
-    Description: Shows an indicator if the camera is in Ctrl Lock mode
+    Description: Shows an indicator while Ctrl-lock is on
 ###
+
+local mouse = game.InputSystem.Mouse
 
 local indicator = new UIPanel() {
     Parent = this,
@@ -74,6 +76,5 @@ local iconImage = new UIBackgroundImage() {
 }
 
 game.TimeSystem.FrameStepped.Connect(func():
-    # can we optimize this every frame check to only when it changes or is this pretty cheap?
-    indicator.Visible = world.CurrentCamera.CtrlLockEnabled
+    indicator.Visible = mouse.SystemLock
 )
