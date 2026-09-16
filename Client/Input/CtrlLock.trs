@@ -1,0 +1,42 @@
+###
+    CtrlLock.trs
+    Type: Core Script
+    Description: Provides Ctrl-Lock behavior
+###
+
+local input = game.InputSystem
+local mouse = input.Mouse
+
+func currentMode():
+    local player = game.Players.LocalPlayer
+    if player == nil: return CtrlLockMode.PlayerChoice
+    return player.CtrlLockMode
+
+func applyMode():
+    local mode = currentMode()
+    if mode == CtrlLockMode.ForceOn:
+        mouse.SystemLock = true
+    elif mode == CtrlLockMode.ForceOff:
+        mouse.SystemLock = false
+
+input.KeyPressed.Connect(func(key):
+    if key == KeyName.Ctrl and currentMode() == CtrlLockMode.PlayerChoice:
+        mouse.SystemLock = not mouse.SystemLock
+)
+
+func watchPlayer(player):
+    player.Changed.Connect(func(name):
+        if name == "CtrlLockMode":
+            applyMode()
+    )
+
+local player = game.Players.LocalPlayer
+if player != nil:
+    watchPlayer(player)
+else:
+    game.Players.PlayerAdded.Connect(func(newPlayer):
+        if game.Players.LocalPlayer == newPlayer:
+            watchPlayer(newPlayer)
+            applyMode()
+    )
+applyMode()

@@ -13,9 +13,7 @@ BADGE_SIZE = 24
 NAME_TEXT_SIZE = 14
 UNKNOWN_PLAYER_NAME = "???"
 
-func CreateNameplate(options):
-    local stretchName = options.StretchName
-    local reserveBadgeSpace = options.ReserveBadgeSpace
+func CreateNameplate():
 
     local player = nil
 
@@ -23,12 +21,10 @@ func CreateNameplate(options):
         Name = "nameplate",
         Spacing = 5,
         CrossAlign = UICrossAlignment.Center,
-        BlocksPointer = false
+        BlocksPointer = false,
+        FitContents = UIContentFit.None,
+        FlexRatio = 1
     }
-    if stretchName:
-        root.FitContents = UIContentFit.None
-    else:
-        root.FitContents = UIContentFit.X
 
     local badgePanel = new UIPanel() {
         Name = "badge",
@@ -46,10 +42,29 @@ func CreateNameplate(options):
     nameText.TextColor = new Color4(1, 1, 1)
     nameText.TextSize = NAME_TEXT_SIZE
     nameText.Parent = root
-    if stretchName:
-        nameText.FitContents = UIContentFit.Y
-        nameText.FlexRatio = 1
-        nameText.ShowEllipsis = true
+    nameText.FitContents = UIContentFit.Y
+    nameText.FlexRatio = 1
+    nameText.ShowEllipsis = true
+    
+    local thirteenPlusBadge = new UITextPanel() {
+        Name = "ThirteenPlusBadge",
+        Roundness = 5,
+        FontName = FontName.Lexend,
+        TextColor = new Color4(0.9, 0.9, 0.9),
+        Color = new Color4(0, 0, 0, 0),
+        Text = "13+",
+        Parent = root,
+        FitContents = UIContentFit.XY,
+        TextSize = 12
+    }
+    thirteenPlusBadge.Visible = false
+
+    local pushEnd = new UIPanel() {
+        Name = "Spacer",
+        Parent = root,
+        Transparency = 1,
+        MinSize = new Vector2(4, 0)
+    }
 
     local Refresh = func():
         if player:
@@ -60,13 +75,7 @@ func CreateNameplate(options):
         local badgeId = ThumbnailUtils.GetPlayerListIconIdForPlayer(player)
         badgeImage.ImageId = badgeId or ""
 
-        if reserveBadgeSpace:
-            if badgeId:
-                badgePanel.Transparency = 0
-            else:
-                badgePanel.Transparency = 1
-        else:
-            badgePanel.Visible = badgeId != nil
+        badgePanel.Visible = badgeId != nil
 
     local SetPlayer = func(forPlayer):
         player = forPlayer
@@ -77,7 +86,8 @@ func CreateNameplate(options):
     return {
         Root = root,
         SetPlayer = SetPlayer,
-        Refresh = Refresh
+        Refresh = Refresh,
+        ThirteenPlusBadge = thirteenPlusBadge
     }
 
 local playerPropChangedConnection = nil
@@ -116,11 +126,12 @@ local image = new UIBackgroundImage() {
     Fit = UIImageFit.Center
 }
 
-local nameplate = CreateNameplate({})
+local nameplate = CreateNameplate()
 nameplate.Root.Parent = contents
 
 func UpdatePlayerInformation():
     image.ImageId = ThumbnailUtils.GetPlayerHeadshotIdForPlayer(Players.LocalPlayer)
+    nameplate.ThirteenPlusBadge.Visible = false # TODO: wire this up if user is 13+
 
 func OnLocalPlayerPropChanged(propertyName):
     nameplate.Refresh()
