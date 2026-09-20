@@ -44,7 +44,7 @@ func CreateNameplate():
     nameText.Parent = root
     nameText.FitContents = UIContentFit.Y
     nameText.FlexRatio = 1
-    nameText.ShowEllipsis = true
+    nameText.TextOverflow = UITextOverflow.Ellipsis
     
     local thirteenPlusBadge = new UITextPanel() {
         Name = "ThirteenPlusBadge",

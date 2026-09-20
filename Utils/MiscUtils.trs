@@ -6,11 +6,13 @@
 
 func formatNumberValueString(value):
     # in case we add different locales
-    local SUFFIX_THOUSANDS = "k"
-    local SUFFIX_MILLIONS = "m"
+    local SUFFIX_THOUSANDS = "K"
+    local SUFFIX_MILLIONS = "M"
+    local SUFFIX_BILLIONS = "B"
+    local SUFFIX_TRILLIONS = "T"
     local THOUSANDS_SEPARATOR = "," # currently unused
 
-    local MAX_VALUE = 999999999 # limit to 999m in either direction
+    local MAX_VALUE = 999999999999999 # limit to 999T in either direction
     local MAX_DIGITS = 3
 
     local number = math.clamp(math.trunc(value or 0), -MAX_VALUE, MAX_VALUE)
@@ -19,7 +21,13 @@ func formatNumberValueString(value):
 
     local suffix = ""
     local scale = 1
-    if magnitude >= 1000000:
+    if magnitude >= 1000000000000:
+        suffix = SUFFIX_TRILLIONS
+        scale = 1000000000000
+    elif magnitude >= 1000000000:
+        suffix = SUFFIX_BILLIONS
+        scale = 1000000000
+    elif magnitude >= 1000000:
         suffix = SUFFIX_MILLIONS
         scale = 1000000
     elif magnitude >= 1000:

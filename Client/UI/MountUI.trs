@@ -31,12 +31,6 @@ CORE_UIS = [
         DisplayOrder = 25
     },
     {
-        Name = "FirstPersonReticle",
-        ScriptPath = "CoreUI/Indicators/FirstPersonReticleUI",
-        Priority = 0,
-        DisplayOrder = 1
-    },
-    {
         Name = "CtrlLockIndicator",
         ScriptPath = "CoreUI/Indicators/CtrlLockIndicatorUI",
         Priority = 1,

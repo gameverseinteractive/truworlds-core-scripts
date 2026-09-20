@@ -46,15 +46,15 @@ func Create(forPlayer):
     nameText.Parent = root
     nameText.FitContents = UIContentFit.Y
     nameText.FlexRatio = 1
-    nameText.ShowEllipsis = true
+    nameText.TextOverflow = UITextOverflow.Ellipsis
 
     local statValueCells = {}
 
     func RefreshStatValueCells():
         for statName in statValueCells:
-            local value = LeaderboardState.GetStatValue(forPlayer, statName)
-            if value != nil:
-                statValueCells[statName].Text = MiscUtils.FormatNumberValueString(value)
+            local entry = LeaderboardState.GetStatEntry(forPlayer, statName)
+            if entry != nil:
+                statValueCells[statName].Text = entry.Display
             else:
                 statValueCells[statName].Text = ""
 
@@ -70,7 +70,7 @@ func Create(forPlayer):
             statValueLabel.Parent = root
             statValueLabel.FitContents = UIContentFit.Y
             statValueLabel.MinSize = new Vector2(60, 0)
-            statValueLabel.ShowEllipsis = true
+            statValueLabel.TextOverflow = UITextOverflow.Ellipsis
             statValueCells[statName] = statValueLabel
 
         RefreshStatValueCells()
