@@ -86,9 +86,8 @@ func ComparePlayerOrder(sortValues):
             local bv = nil
             if avs != nil and i < avs.length: av = avs[i]
             if bvs != nil and i < bvs.length: bv = bvs[i]
-            if av != nil and bv == nil: return true
-            if av == nil and bv != nil: return false
-            if av != nil and bv != nil and av != bv: return av > bv
+            local order = LeaderboardState.CompareStatEntries(av, bv)
+            if order != 0: return order > 0
 
         return a.Name < b.Name
 
@@ -119,7 +118,7 @@ func UpdatePlayerList():
         for plr in LeaderboardState.Players:
             local values = []
             for i in range(0, LeaderboardState.StatNames.length):
-                values.push(LeaderboardState.GetStatValue(plr, LeaderboardState.StatNames[i]))
+                values.push(LeaderboardState.GetStatEntry(plr, LeaderboardState.StatNames[i]))
             sortValues[plr] = values
 
     local sorted = table.keys(LeaderboardState.Players).sort(ComparePlayerOrder(sortValues))
